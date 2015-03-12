@@ -1,14 +1,14 @@
 /**********************************************************************************
-* Author: Kiran Kumar Lekkala                                                     *
-* Filename: pot_adc.c                                                             *
-* Description: This is a C code to output the voltage as a scale from 0 to 1 when *
-* a Potentiometer is connected to the P9_27 (GPIO3_19) across the 1.8V and the ground pin.   *
-* It uses the Starterware library for PRU in Beaglebone black. This example is    *
-* presented to demonstrate the usage of Starterware library for the Beaglebone.	  *
-* This was originaly developed for the am335x main processor and can also be      *
-* modified for accessing the main core's peripheral unit by PRU                   *
-* PRU-Compiler version: 2.0.0B1                                                   *
-**********************************************************************************/
+ * Author: Kiran Kumar Lekkala                                                     *
+ * Filename: pot_adc.c                                                             *
+ * Description: This is a C code to output the voltage as a scale from 0 to 1 when *
+ * a Potentiometer is connected to the P9_27 (GPIO3_19) across the 1.8V and the ground pin.   *
+ * It uses the Starterware library for PRU in Beaglebone black. This example is    *
+ * presented to demonstrate the usage of Starterware library for the Beaglebone.	  *
+ * This was originaly developed for the am335x main processor and can also be      *
+ * modified for accessing the main core's peripheral unit by PRU                   *
+ * PRU-Compiler version: 2.0.0B1                                                   *
+ **********************************************************************************/
 
 
 
@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <consoleUtils.h>
 #include <soc_AM335x.h>
-#include <hw_types>
+#include <hw_types.h>
 #include <tsc_adc.h>
 
 /* Internal macro definitions */
@@ -30,10 +30,10 @@ unsigned int value;
 
 
 /* Functions declared */
-static void ADCConfigure(void)
-static void CleanUpInterrupts(void)
-static void ADC_Read(void)
-
+static void ADCConfigure(void);
+static void CleanUpInterrupts(void);
+static void ADC_Read(void);
+void StepConfigure(unsigned int stepSel, unsigned int fifo,unsigned int positiveInpChannel);
 
 int main(){
 
@@ -45,13 +45,13 @@ int main(){
 
     while(flag);
 
-    val1 = (sample1 * RESOL_X_MILLION) / 1000;
+    value = (sample * RESOL_X_MILLION) / 1000;
 
-    ConsoleUtilsPrintf("Potentiometer voltage scaled from 0 to 1");
+    printf("Potentiometer voltage scaled from 0 to 1");
 
-    ConsoleUtilsPrintf("%d", val1);
+    printf("%d", value);
 
-    ConsoleUtilsPrintf("mV\r\n");
+    printf("mV\r\n");
 
     while(1);
 
@@ -103,23 +103,23 @@ static void ADCConfigure(void)
 
 
 void StepConfigure(unsigned int stepSel, unsigned int fifo,
-                   unsigned int positiveInpChannel)
+        unsigned int positiveInpChannel)
 {
     /* Configure ADC to Single ended operation mode */
     TSCADCTSStepOperationModeControl(SOC_ADC_TSC_0_REGS,
-                                  TSCADC_SINGLE_ENDED_OPER_MODE, stepSel);
+            TSCADC_SINGLE_ENDED_OPER_MODE, stepSel);
 
     /* Configure step to select Channel, refernce voltages */
     TSCADCTSStepConfig(SOC_ADC_TSC_0_REGS, stepSel, TSCADC_NEGATIVE_REF_VSSA,
-                    positiveInpChannel, TSCADC_NEGATIVE_INP_CHANNEL1, TSCADC_POSITIVE_REF_VDDA);
+            positiveInpChannel, TSCADC_NEGATIVE_INP_CHANNEL1, TSCADC_POSITIVE_REF_VDDA);
 
     /* XPPSW Pin is on, Which pull up the AN0 line*/
     TSCADCTSStepAnalogSupplyConfig(SOC_ADC_TSC_0_REGS, TSCADC_XPPSW_PIN_ON, TSCADC_XNPSW_PIN_OFF,
-                                TSCADC_YPPSW_PIN_OFF, stepSel);
+            TSCADC_YPPSW_PIN_OFF, stepSel);
 
     /* XNNSW Pin is on, Which pull down the AN1 line*/
     TSCADCTSStepAnalogGroundConfig(SOC_ADC_TSC_0_REGS, TSCADC_XNNSW_PIN_ON, TSCADC_YPNSW_PIN_OFF,
-                                TSCADC_YNNSW_PIN_OFF,  TSCADC_WPNSW_PIN_OFF, stepSel);
+            TSCADC_YNNSW_PIN_OFF,  TSCADC_WPNSW_PIN_OFF, stepSel);
 
     /* select fifo 0 or 1*/
     TSCADCTSStepFIFOSelConfig(SOC_ADC_TSC_0_REGS, stepSel, fifo);
@@ -131,7 +131,7 @@ void StepConfigure(unsigned int stepSel, unsigned int fifo,
 /* Clear status for the PRU0 interrupt */
 static void CleanUpInterrupts(void)
 {
-    
+
 }
 
 
@@ -146,13 +146,13 @@ static void ADC_Read()
 
     if(status & TSCADC_END_OF_SEQUENCE_INT)
     {
-         /* Read data from fifo 0 */
-         sample1 = TSCADCFIFOADCDataRead(SOC_ADC_TSC_0_REGS, TSCADC_FIFO_0);
+        /* Read data from fifo 0 */
+        sample = TSCADCFIFOADCDataRead(SOC_ADC_TSC_0_REGS, TSCADC_FIFO_0);
 
-         /* Read data from fif 1*/
-         sample2 = TSCADCFIFOADCDataRead(SOC_ADC_TSC_0_REGS, TSCADC_FIFO_1);
+        /* Read data from fif 1*/
+        //sample2 = TSCADCFIFOADCDataRead(SOC_ADC_TSC_0_REGS, TSCADC_FIFO_1);
 
-         flag = 0;
+        flag = 0;
     }
 }
 
