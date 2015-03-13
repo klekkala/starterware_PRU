@@ -58,4 +58,3 @@ SECTIONS
 
     .text       : {} > P_MEM, PAGE 0
 }
-

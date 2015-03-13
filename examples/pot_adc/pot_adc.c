@@ -14,13 +14,42 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <consoleUtils.h>
 #include <soc_AM335x.h>
 #include <hw_types.h>
 #include <tsc_adc.h>
 
+
+/* macro functions */
+#define HWREG(x) (*((volatile unsigned int *)(x)))
+
+
 /* Internal macro definitions */
 #define RESOL_X_MILLION            (439u)
+#define PRU0_ARM_INTERRUPT		19
+#define GPIO_INSTANCE_ADDRESS           (SOC_GPIO_1_REGS)
+#define SYSCFG (*(&C4+0x01))
+int C4 __attribute__((cregister("MEM",near),peripheral));	//only compatible with v1.1.0B1 +
+								//add following lines to MEMORY{} in lnk.cmd
+								//PAGE 2:
+								//	MEM : o = 0x00026000 l = 0x00002000 CREGISTER=4
+
+
+/* Address for the INTC registers */
+#define PRUSS_INTC	0x00004000
+#define GER	0x10
+#define	SIPR0	0xd00
+#define	SIPR1	0xd04
+#define	SITR0	0xd80
+#define	SITR1	0xd84
+
+#define CMR0	0x400
+#define CMR13	0X43c
+#define HMR0	0x800
+#define HMR2	0x808
+#define SECR0	0x280
+#define SECR1	0x284
+#define HIEISR	0x34
+#define EISR	0x28
 
 
 /* Varibles for sampling data */
@@ -31,15 +60,20 @@ unsigned int value;
 
 /* Functions declared */
 static void ADCConfigure(void);
+static void INTCConfigure(void);
 static void CleanUpInterrupts(void);
 static void ADC_Read(void);
 void StepConfigure(unsigned int stepSel, unsigned int fifo,unsigned int positiveInpChannel);
 
+
+volatile register unsigned int __R31;
 int main(){
 
-    /* Initialize interrupt controller */
-    SetupIntc();
+    /* Enable the OCP port */
+    SYSCFG&=0xFFFFFFEF;
 
+    /* Configure the interrupts for PRUSS */
+    //INTCConfigure();
     /* Initialize ADC */
     ADCConfigure();
 
@@ -53,7 +87,42 @@ int main(){
 
     printf("mV\r\n");
 
-    while(1);
+    /* send a notification to the host that we are done */
+    __R31 =  35;
+    __halt();
+
+}
+
+static void INTCConfigure(void)
+{
+	HWREG(PRUSS_INTC + GER) |= 0x01;
+/* Polarity of all the interrupts is active high */
+    HWREG(PRUSS_INTC + SIPR0) = 0xFFFFFFFF;
+
+/* Polarity of all the system interrupts is active high */
+    HWREG(PRUSS_INTC + SIPR1) = 0xFFFFFFFF;
+
+/* Type of all incoming events is a pulse */
+    HWREG(PRUSS_INTC + SITR0) = 0x00000000;
+
+/* Type of all incoming events is a pulse */
+    HWREG(PRUSS_INTC + SITR1) = 0x00000000;
+
+/* Set the channel for interrupt number: 53 (TSC_ADC) */
+    HWREG(PRUSS_INTC + CMR13) |= 0x00000000;
+
+/* Set the host channel for interrupt number 53 (TSC_ADC) */
+    HWREG(PRUSS_INTC + HMR0) |=  0x00000000;
+
+/* Clear the system interrupt's status */
+    HWREG(PRUSS_INTC + SECR0) = 0xFFFFFFFF;
+
+    HWREG(PRUSS_INTC + SECR1) = 0xFFFFFFFF;
+/* Enable the individual host channel */
+    HWREG(PRUSS_INTC + HIEISR) |= 0x001;
+
+/* Enable the system interrupt */
+    HWREG(PRUSS_INTC + EISR) |= 0x001;
 
 }
 
@@ -61,9 +130,9 @@ int main(){
 static void ADCConfigure(void)
 {
     /* Enable the clock for touch screen */
-    TSCADCModuleClkConfig();
+    //TSCADCModuleClkConfig();
 
-    TSCADCPinMuxSetUp();
+//    TSCADCPinMuxSetUp();
 
     /* Configures ADC to 3Mhz */
     TSCADCConfigureAFEClock(SOC_ADC_TSC_0_REGS, 24000000, 3000000);
@@ -89,7 +158,7 @@ static void ADCConfigure(void)
     TSCADCConfigureStepEnable(SOC_ADC_TSC_0_REGS, 1, 1);
 
     /* Enable step 2 */
-    TSCADCConfigureStepEnable(SOC_ADC_TSC_0_REGS, 2, 1);
+    //TSCADCConfigureStepEnable(SOC_ADC_TSC_0_REGS, 2, 1);
 
     /* Clear the status of all interrupts */
     CleanUpInterrupts();
@@ -99,6 +168,7 @@ static void ADCConfigure(void)
 
     /* Enable the TSC_ADC_SS module*/
     TSCADCModuleStateSet(SOC_ADC_TSC_0_REGS, TSCADC_MODULE_ENABLE);
+    ADC_Read();
 }
 
 
@@ -128,10 +198,12 @@ void StepConfigure(unsigned int stepSel, unsigned int fifo,
     TSCADCTSStepModeConfig(SOC_ADC_TSC_0_REGS, stepSel,  TSCADC_ONE_SHOT_SOFTWARE_ENABLED);
 }
 
-/* Clear status for the PRU0 interrupt */
+/* Clear status of all interrupts */
 static void CleanUpInterrupts(void)
 {
-
+    TSCADCIntStatusClear(SOC_ADC_TSC_0_REGS, 0x7FF);
+    TSCADCIntStatusClear(SOC_ADC_TSC_0_REGS ,0x7FF);
+    TSCADCIntStatusClear(SOC_ADC_TSC_0_REGS, 0x7FF);
 }
 
 
