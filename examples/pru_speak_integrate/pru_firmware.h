@@ -16,6 +16,18 @@ volatile register unsigned int __R31;
 #define EV_ARM_PRU0	21
 #define EV_ARM_PRU1	22
 
+/* GPIO list */
+
+#define GPIO0   (*(volatile unsigned long *)(0x44e07000))
+#define GPIO1   (*(volatile unsigned long *)(0x4804c000))
+#define GPIO2   (*(volatile unsigned long *)(0x481ac000))
+#define GPIO3   (*(volatile unsigned long *)(0x481ae000))
+
+#define GPIO0_INSTANCE_ADDRESS   (SOC_GPIO_0_REGS)
+#define GPIO1_INSTANCE_ADDRESS   (SOC_GPIO_1_REGS)
+#define GPIO2_INSTANCE_ADDRESS   (SOC_GPIO_2_REGS)
+#define GPIO3_INSTANCE_ADDRESS   (SOC_GPIO_3_REGS)
+
 
 __far volatile char C0[0x300] __attribute__((cregister("C0", far)));
 
@@ -108,7 +120,7 @@ __far volatile char C26[0x100] __attribute__((cregister("C26", near)));	/* PRUIE
 
 #define DPRAM_SHARED	0x00010000
 #define DATA_SLOTS	16
-/* structure used to pass information pru0 <--> pru1 
+/* structure used to pass information pru0 <--> pru1
    status[i] => pru<i> has information for it to read
    info[i] => the data pru<i> has received
 */

@@ -5,7 +5,7 @@
 #define MS                      0x30d40 //number of clock cycles it takes for 1ms
 
 /*max number of DIO pins*/
-#define MAX_DIO			12
+#define MAX_DIO			120
 
 /* max data area (in terms of index for var_loc[])*/
 #define MAX_DATA		239
@@ -14,7 +14,7 @@
 #define DIO_OFF			240
 #define AIO_OFF			256
 
-/* 
+/*
 	sys calls ids
 	Different syscall values, aliases and their meaning
 */
@@ -22,7 +22,7 @@
 //DEBUG - Sets all output pins to high
 #define SYS_DEBUG       0
 
-//INIT - initializes the shm address, 
+//INIT - initializes the shm address,
 //writes into it so kernel knows that pru can talk via shm
 #define SYS_INIT        1
 
