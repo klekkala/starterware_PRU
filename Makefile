@@ -24,7 +24,7 @@ $(TARGET): $(OBJECTS)
  
 %.o: %.c
 	$(CC) -c --output_file=$@ $< $(CFLAGS)
- 
+
 install: $(TARGET)
 	sudo install -m 755 -d /usr/share/pru_am335x_starterware/lib
 	sudo install -m 644 -t /usr/share/pru_am335x_starterware/lib $(TARGET)
