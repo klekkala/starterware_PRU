@@ -2,32 +2,55 @@
 #include "pru0_firmware.h"
 #include <soc_AM335x.h>
 #include <gpio_v2.h>
+#include <stdio.h>
+#include <stdint.h>
 
 int var_loc[256];
 void wait(int);
 int pwm_val = 0;
 
-void base(int val1, volatile unsigned long instance){
-    if(val1 <= 31){
-        instance = GPIO1_INSTANCE_ADDRESS;
-    }
-    else if(val1 < 63){
-        instance = GPIO1_INSTANCE_ADDRESS;
-    }
-    else if(val1 < 96){
-        instance = GPIO1_INSTANCE_ADDRESS;
-    }
-    else{
-        instance = GPIO1_INSTANCE_ADDRESS;
-    }
+
+#define DPRAM2_SHARED     0x00012000
+#define NUM_RING_ENTRIES 20
+
+/* the command is at the start of shared DPRAM */
+#define RBUFF        ((volatile struct ring_buffer *)DPRAM2_SHARED)
+
+struct ring_buffer {
+    volatile uint8_t ring_head;
+    volatile uint8_t ring_tail;
+    struct {
+           char str[10];
+           uint8_t integers[4];
+    } buffer[NUM_RING_ENTRIES];
+};
+
+
+void add_to_ring_buffer(const char str[], uint8_t integers[])
+{
+	int i;
+	for(i=0;i<10 && str[i] != '\0';i++){
+		RBUFF->buffer[RBUFF->ring_tail].str[i] = str[i];
+	}
+	RBUFF->buffer[RBUFF->ring_tail].str[i] = '\0';
+	for(i=0;i<3;i++){
+		RBUFF->buffer[RBUFF->ring_tail].integers[i] = integers[i];
+	}
+	RBUFF->ring_tail = (RBUFF->ring_tail + 1) % NUM_RING_ENTRIES;
+}
+
+void init(int val1, unsigned long instance){
+
+	GPIOModuleEnable(instance);
+	GPIOModuleReset(instance);
+	GPIODirModeSet(instance, val1, GPIO_DIR_OUTPUT);
+
 }
 static void send_ret_value(int val)
 {
 	//TODO : handle multiple params?
 	//TODO : change to sysfs
-	/*enable gloabl access*/
-	PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT);
-
+//		PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
 	/* write val to the loc pointed to by current ret_pointer */
 	*(shm_ret + ret_pointer) = val;
 
@@ -40,7 +63,7 @@ static void send_ret_value(int val)
 		//userspace will read this value to figure out till where the buffer has been filled
 		//e.g. if the ret_pointer = 10; ARM will read 9 slots uptill 10
 
-	PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
+//	PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
 
 }
 
@@ -51,9 +74,9 @@ static u32 get_second_word()
 
 	/* when the 64 bit inst is part of the script */
 	if(!single_command){
-		PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
+//		PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
 		inst = *(shm_code + inst_pointer);
-		PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
+//		PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
 		inst_pointer++;
 	}
 
@@ -95,7 +118,6 @@ int get_var_val(int addr)
 void dio_handler(int opcode, u32 inst)
 {
 	int val1, val2;
-    volatile unsigned long instance;
 	if(opcode == SET_DIO_a){
 	/* SET DIO[c/v], c/v */
 
@@ -119,17 +141,23 @@ void dio_handler(int opcode, u32 inst)
 		int addr = GET_BYTE(inst, 1) + index + 1;
 		val2 = var_loc[addr];
 	}
-    base(val1, instance);
+	//PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
+	init(val1, GPIO1_INSTANCE_ADDRESS);
 	/* set hi*/
-	if(val2 && (val1 < MAX_DIO)) {
-         GPIOPinWrite(instance, 7, GPIO_PIN_HIGH);
-        }
+	if(val2 && (val1 < MAX_DIO)){
+        	//__R30 = __R30 | ( 1 << val1);   //original line
+		GPIOPinWrite(GPIO1_INSTANCE_ADDRESS, val1, GPIO_PIN_HIGH);
+}
 
 	/* set low*/
         else{
-        	GPIOPinWrite(instance, 7, GPIO_PIN_LOW);
+		GPIOPinWrite(GPIO1_INSTANCE_ADDRESS, val1, GPIO_PIN_LOW);
+        	//__R30 = __R30 & ~( 1 << val1);  //original line
         }
-
+	int j;
+	//empty loop
+	for(j=0;j<500;j++);
+      //	PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
 	if(single_command)
 		send_ret_value(val2 ? 1 : 0);
 }
@@ -591,12 +619,12 @@ static int handle_downcall(u32 id, u32 arg0, u32 arg1, u32 arg2,
 			is_executing = 0;
 			is_waiting = false;
 			var_loc[DIO_OFF] = 0xFFFFFF; //no index out of bounds for DIO, AIO etc.
-			PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
+	//		PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
 			shm_code = (u32 *)arg0;
 			shm_ret = (u32 *)arg1;
 			*shm_code = 25; /*for test purposes - checked by kernel*/
 			*shm_ret = 1;
-			PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
+	//		PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
 		break;
 
 		case SYS_EXEC:
@@ -620,9 +648,9 @@ static int handle_downcall(u32 id, u32 arg0, u32 arg1, u32 arg2,
 			is_waiting = false;
 			inst_pointer = 0;
 			ret_pointer = 1;
-			PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT);
+	//		PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT);
 			*shm_ret = 1;
-			PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
+	//		PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
 		break;
 
 		case SYS_STAT:
@@ -714,9 +742,9 @@ void execute_instruction()
 {
 	u32 inst;
 	if(!single_command){
-		PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
+	//	PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
 		inst = *(shm_code + inst_pointer);
-		PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
+	//	PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
 		inst_pointer++;
 	}
 	else {
@@ -803,22 +831,29 @@ void timer_init()
 	PIEP_GLOBAL_CFG |= GLOBAL_CFG_CNT_ENABLE;
 }
 
-int main()
-{
+int main(){
+        timer_init();
+        PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT);
+        //send_ret_value(1000);
 
-	timer_init();
-	//send_ret_value(1000);
-	while(1)
-	{
-		check_event();
+        uint8_t deb_ints[4] = {0};
+        RBUFF->ring_tail = 0;
+        RBUFF->ring_head = 0;
+        add_to_ring_buffer("initial",deb_ints);
+        while(1)
+        {
+                check_event();
 
-		if (is_executing || single_command){ //or if single_cmd
-			execute_instruction();
-			//send_ret_value(is_executing);
-			//send_ret_value(single_command);
-		}
+                if (is_executing || single_command){ //or if single_cmd
+                        execute_instruction();
+                        //send_ret_value(is_executing);
+                        //send_ret_value(single_command);
+                }
+                /*strcpy(deb_str, "Fault occured");
+                deb_ints[0] = PRUCFG_SYSCFG;                       //is
+                add_to_ring_buffer(deb_str,deb_ints);       //for debug*/
 
-	}
+        }
 
-	return 0;
+        return 0;
 }
