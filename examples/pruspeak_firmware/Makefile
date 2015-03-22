@@ -7,7 +7,6 @@ LIBDIR = -i$(SWDIR)/lib -i$(A_DIR)
 all: pru0_firmware pru1_firmware
 
 CFLAGS := -03 --c99 $(INCLUDEDIR)
-
 #PRU0
 pru0_firmware: pru0_firmware.obj pru0_syscall.obj AM3359_PRU.cmd
 	lnkpru AM3359_PRU.cmd -o=pru0_firmware pru0_firmware.obj pru0_syscall.obj $(LIBDIR) -llibstarterware.a
