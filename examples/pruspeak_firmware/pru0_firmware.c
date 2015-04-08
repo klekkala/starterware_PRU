@@ -141,7 +141,7 @@ void dio_handler(int opcode, u32 inst)
 		int addr = GET_BYTE(inst, 1) + index + 1;
 		val2 = var_loc[addr];
 	}
-	//PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
+	PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
 	init(val1, GPIO1_INSTANCE_ADDRESS);
 	/* set hi*/
 	if(val2 && (val1 < MAX_DIO)){
@@ -155,9 +155,9 @@ void dio_handler(int opcode, u32 inst)
         	//__R30 = __R30 & ~( 1 << val1);  //original line
         }
 	int j;
-	//empty loop
-	for(j=0;j<500;j++);
-      //	PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
+	//empty delay loop
+    for(j=0;j<100;j++);
+    PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
 	if(single_command)
 		send_ret_value(val2 ? 1 : 0);
 }
