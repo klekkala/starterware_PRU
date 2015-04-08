@@ -80,102 +80,102 @@ static u32 get_second_word()
 		inst_pointer++;
 	}
 
-	/* when the 64 bit inst is a single_inst */
-	else {
-		inst = single_command_2;
-	}
+    /* when the 64 bit inst is a single_inst */
+    else {
+        inst = single_command_2;
+    }
 
-	return inst;
+    return inst;
 }
 
 /* used to get value of a variable*/
 int get_var_val(int addr)
 {
-	if (addr > MAX_DATA){
-		if(addr < AIO_OFF){
-		//case DIO
-		//240 to 255 -> DIO[0] to DIO[15]
+    if (addr > MAX_DATA){
+        if(addr < AIO_OFF){
+            //case DIO
+            //240 to 255 -> DIO[0] to DIO[15]
 
-			addr -= 1;
-			//this is there since if the code reaces here it is Arr[c/v]
-			//so either the userspace compiler or calling pru func here
-			//would have added 1. this should be taken care of.
+            addr -= 1;
+            //this is there since if the code reaces here it is Arr[c/v]
+            //so either the userspace compiler or calling pru func here
+            //would have added 1. this should be taken care of.
 
-			addr -= DIO_OFF;
-			return GET_BIT(__R31, addr);
-		}
-	}
+            addr -= DIO_OFF;
+            return GET_BIT(__R31, addr);
+        }
+    }
 
-	else{
-		return var_loc[addr];
-	}
+    else{
+        return var_loc[addr];
+    }
 
-	return 0;
+    return 0;
 }
 
 /*instruction handlers*/
 
 void dio_handler(int opcode, u32 inst)
 {
-	int val1, val2;
-	if(opcode == SET_DIO_a){
-	/* SET DIO[c/v], c/v */
+    int val1, val2;
+    if(opcode == SET_DIO_a){
+        /* SET DIO[c/v], c/v */
 
-		val1 = GET_BIT(inst, 23) ? var_loc[GET_BYTE(inst, 1)]: GET_BYTE(inst, 1);
-		val2 = GET_BIT(inst, 22) ? var_loc[GET_BYTE(inst, 0)]: GET_BYTE(inst, 0);
-	}
+        val1 = GET_BIT(inst, 23) ? var_loc[GET_BYTE(inst, 1)]: GET_BYTE(inst, 1);
+        val2 = GET_BIT(inst, 22) ? var_loc[GET_BYTE(inst, 0)]: GET_BYTE(inst, 0);
+    }
 
-	else{
-		// "SET DIO[c], arr[v]"  orelse "SET DIO[v] , arr[v]"
-		val1 = (opcode == SET_DIO_b) ? GET_BYTE(inst, 2) : var_loc[GET_BYTE(inst,2)];
+    else{
+        // "SET DIO[c], arr[v]"  orelse "SET DIO[v] , arr[v]"
+        val1 = (opcode == SET_DIO_b) ? GET_BYTE(inst, 2) : var_loc[GET_BYTE(inst,2)];
 
-		//array size check -- this case same for both case
-		int index = var_loc[GET_BYTE(inst, 0)];
-		if (var_loc[GET_BYTE(inst,1)] <= index ){
-			//error
-			if (single_command)
-				send_ret_value(0);
-			return;
-		}
-		//if everything okay
-		int addr = GET_BYTE(inst, 1) + index + 1;
-		val2 = var_loc[addr];
-	}
-	PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
-	init(val1, GPIO1_INSTANCE_ADDRESS);
-	/* set hi*/
-	if(val2 && (val1 < MAX_DIO)){
-        	//__R30 = __R30 | ( 1 << val1);   //original line
-		GPIOPinWrite(GPIO1_INSTANCE_ADDRESS, val1, GPIO_PIN_HIGH);
-}
-
-	/* set low*/
-        else{
-		GPIOPinWrite(GPIO1_INSTANCE_ADDRESS, val1, GPIO_PIN_LOW);
-        	//__R30 = __R30 & ~( 1 << val1);  //original line
+        //array size check -- this case same for both case
+        int index = var_loc[GET_BYTE(inst, 0)];
+        if (var_loc[GET_BYTE(inst,1)] <= index ){
+            //error
+            if (single_command)
+                send_ret_value(0);
+            return;
         }
-	int j;
-	//empty delay loop
+        //if everything okay
+        int addr = GET_BYTE(inst, 1) + index + 1;
+        val2 = var_loc[addr];
+    }
+    PRUCFG_SYSCFG = PRUCFG_SYSCFG & (~SYSCFG_STANDBY_INIT); /*enable gloabl access*/
+    init(val1, GPIO1_INSTANCE_ADDRESS);
+    /* set hi*/
+    if(val2 && (val1 < MAX_DIO)){
+        //__R30 = __R30 | ( 1 << val1);   //original line
+        GPIOPinWrite(GPIO1_INSTANCE_ADDRESS, val1, GPIO_PIN_HIGH);
+    }
+
+    /* set low*/
+    else{
+        GPIOPinWrite(GPIO1_INSTANCE_ADDRESS, val1, GPIO_PIN_LOW);
+        //__R30 = __R30 & ~( 1 << val1);  //original line
+    }
+    int j;
+    //empty delay loop
     for(j=0;j<100;j++);
     PRUCFG_SYSCFG = PRUCFG_SYSCFG | SYSCFG_STANDBY_INIT;
-	if(single_command)
-		send_ret_value(val2 ? 1 : 0);
+    if(single_command)
+        send_ret_value(val2 ? 1 : 0);
 }
 
 void pwm_handler(int opcode, u32 inst)
 {
-	//takes in only PWM[c], c. This will be merged with dio later
-        int val1, val2;
-        if(opcode == SET_PWM_a){
+    //takes in only PWM[c], c. This will be merged with dio later
+    int val1, val2;
+    if(opcode == SET_PWM_a){
         /* SET PWM[c/v], c/v */
 
-                val1 = GET_BIT(inst, 23) ? var_loc[GET_BYTE(inst, 1)]: GET_BYTE(inst, 1);
-                val2 = GET_BIT(inst, 22) ? var_loc[GET_BYTE(inst, 0)]: GET_BYTE(inst, 0);
-        }
+        val1 = GET_BIT(inst, 23) ? var_loc[GET_BYTE(inst, 1)]: GET_BYTE(inst, 1);
+        val2 = GET_BIT(inst, 22) ? var_loc[GET_BYTE(inst, 0)]: GET_BYTE(inst, 0);
+    }
 
-        else{
-                // "SET PWM[c], arr[v]"  orelse "SET PWM[v] , arr[v]"
-                val1 = (opcode == SET_PWM_b) ? GET_BYTE(inst, 2) : var_loc[GET_BYTE(inst,2)];
+    else{
+        // "SET PWM[c], arr[v]"  orelse "SET PWM[v] , arr[v]"
+        val1 = (opcode == SET_PWM_b) ? GET_BYTE(inst, 2) : var_loc[GET_BYTE(inst,2)];
 
                 //array size check -- this case same for both case
                 int index = var_loc[GET_BYTE(inst, 0)];
